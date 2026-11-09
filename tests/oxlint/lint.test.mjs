@@ -17,7 +17,8 @@ for (const name of Object.keys(SNAPSHOT_CASES)) {
             // When oxlint lints the fixtures
             const {codes, stderr} = runOxlint(directory, oxlintBinary, getOxlintEnvironment());
 
-            // Then the config loads, and rules from oxlint, core, hosted and rulesdir all report
+            // Then the config loads, and rules from oxlint, hosted and (for the app) rulesdir report. core/ reports are
+            // checked in the next test
             assert.ok(codes.length > 0, `oxlint did not load the config: ${stderr}`);
             const exhaustiveDeps = SNAPSHOT_CASES[name].nativeRules ? 'react-hooks(exhaustive-deps)' : 'hosted(exhaustive-deps)';
             for (const expected of ['eslint(eqeqeq)', 'typescript(dot-notation)', exhaustiveDeps, 'hosted(prefer-default-export)']) {
@@ -58,6 +59,17 @@ export function f() {
         assert.ok(codesIn('loud.js').includes('hosted(exhaustive-deps)'), codesIn('loud.js').join(', '));
         assert.ok(codesIn('loud.js').includes('core(dot-notation)'), codesIn('loud.js').join(', '));
         assert.deepEqual(codesIn('silenced.js').filter(silencedCode => /exhaustive-deps|dot-notation/.test(silencedCode)), []);
+    } finally {
+        fs.rmSync(directory, {recursive: true, force: true});
+    }
+});
+
+test('runOxlint says so when the oxlint binary cannot be run', () => {
+    // Given a path with no binary
+    const directory = createFixtureProject('{}');
+    try {
+        // When oxlint is run from it, then the error names the binary instead of a config problem
+        assert.throws(() => runOxlint(directory, `${directory}/missing-oxlint`, process.env), /Could not run oxlint at .*missing-oxlint: .*ENOENT/);
     } finally {
         fs.rmSync(directory, {recursive: true, force: true});
     }

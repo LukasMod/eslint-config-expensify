@@ -50,6 +50,9 @@ function runOxlint(directory, oxlintBinary, env) {
     const result = spawnSync(oxlintBinary, ['-c', 'oxlintrc.json', '--format=json', '.'], {
         cwd: directory, env, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
     });
+    if (result.error) {
+        throw new Error(`Could not run oxlint at ${oxlintBinary}: ${result.error.message}`, {cause: result.error});
+    }
     let diagnostics = [];
     try {
         diagnostics = JSON.parse(result.stdout).diagnostics.map(({code, filename}) => ({code, filename}));

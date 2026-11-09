@@ -7,8 +7,8 @@ import {SNAPSHOT_CASES, buildSnapshot, snapshotPath} from './cases.mjs';
 
 for (const name of Object.keys(SNAPSHOT_CASES)) {
     test(`buildOxlintConfig output for the ${name} presets matches the snapshot`, async () => {
-        // Given the preset list a repo uses
-        // When the config is built
+        // Given the preset list a repo uses in its own config
+        // When the config is built from it here
         const actual = await buildSnapshot(name);
 
         // Then it is the committed one, so a change to the conversion shows up in review (npm run build:oxlint rewrites it)
@@ -18,7 +18,7 @@ for (const name of Object.keys(SNAPSHOT_CASES)) {
 
 test('generated/rules.json is up to date', async () => {
     // Given the committed list of core and hosted rules
-    // When it is rebuilt from the presets
+    // When it is rebuilt from every preset the package exports
     const rebuilt = await buildRulesJson();
 
     // Then nothing changed, so the plugins host every rule the presets need

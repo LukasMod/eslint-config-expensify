@@ -92,6 +92,8 @@ Options:
 
 Edit the presets as usual. If you add a rule, change `oxlint/tables.mjs` or move to another oxlint version, run `npm run build:oxlint` and commit what it changes: `oxlint/generated/rules.json` (which rules run as `core/` or `hosted/`) and the test snapshots. Run `npm run test:oxlint` to check the oxlint side; `npm test` doesn't include it.
 
+If the build stops with "oxlint cannot run <rule>", the message names the table in `oxlint/tables.mjs` to add the rule to: run it from its ESLint plugin, use an oxlint rule in its place, or drop it with a reason. Rules that need type information can only be replaced or dropped.
+
 ## Style Guide
 
 Feel free to also check out our [Javascript style guide](https://github.com/Expensify/Style-Guides/blob/main/javascript.md), our [general language-agnostic coding standards](https://github.com/Expensify/Style-Guides/blob/main/general.md), and the [ESlint config docs](http://eslint.org/docs/user-guide/configuring#extending-configuration-files) for more information.

@@ -1,6 +1,6 @@
 /**
  * oxlint and ESLint name some rules differently. This maps oxlint's names back to ESLint's rule IDs, so findings show up
- * under the IDs that seatbelt baselines and `eslint-disable` comments use.
+ * under the IDs that `eslint-disable` comments and a repo's baseline of known findings use.
  */
 import {hostedRuleIDs} from './generatedRules.mjs';
 import {splitRuleID} from './hosting.mjs';

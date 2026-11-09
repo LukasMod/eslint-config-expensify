@@ -6,7 +6,7 @@ import {withEslintDirectiveIDs} from '../../oxlint/utils.mjs';
 const RULE_ID = 'react-hooks/exhaustive-deps';
 const REPORT_LINE = 5;
 
-// Each case lives in its own file name, because the wrapper parses a file's comments once and remembers them.
+// Each case lives in its own file name, so no case reuses the comments another one parsed.
 let fileNumber = 0;
 
 /**
@@ -107,4 +107,19 @@ test('a comment can name several rules, or none, and may end with a reason', () 
 
     // And text that only starts like a directive is not one
     assert.equal(isReported([comment('Block', ' eslint-disabled ', 1)]), true);
+});
+
+test('when a file changes, its eslint-disable comments are read again', () => {
+    // Given one file name, linted first without a disable comment and then, after an edit, with one, as in an editor
+    const reports = [];
+    const rule = withEslintDirectiveIDs({create: context => ({Program: node => context.report({node, message: 'reported'})})}, RULE_ID);
+    const lint = (text, comments) => rule.create({filename: 'edited.js', sourceCode: {text, getAllComments: () => comments}, report: report => reports.push(report)})
+        .Program({loc: {start: {line: REPORT_LINE, column: 0}, end: {line: REPORT_LINE, column: 5}}});
+
+    // When both versions are linted
+    lint('before', []);
+    lint('after', [comment('Line', ` eslint-disable-next-line ${RULE_ID}`, REPORT_LINE - 1)]);
+
+    // Then only the first version reports, so the comment added by the edit counts
+    assert.equal(reports.length, 1);
 });

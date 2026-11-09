@@ -78,17 +78,21 @@ function parseDirectives(comments) {
 }
 
 /**
- * Every wrapped rule checks the same file's comments, so they are parsed once per file.
+ * Every wrapped rule checks the same file's comments, so they are parsed once per file. The file's text is stored with
+ * them, because an editor can lint the same file again after it changes.
  * @param {string | undefined} filename
- * @param {Array<Parameters<typeof parseComment>[0]>} comments
+ * @param {{text?: string, getAllComments: () => Array<Parameters<typeof parseComment>[0]>}} sourceCode
  * @returns {ReturnType<typeof parseDirectives>}
  */
-function directivesFor(filename, comments) {
+function directivesFor(filename, sourceCode) {
     const key = filename ?? '<unknown>';
-    if (!cache.has(key)) {
-        cache.set(key, parseDirectives(comments));
+    const cached = cache.get(key);
+    if (cached && cached.text !== undefined && cached.text === sourceCode.text) {
+        return cached.directives;
     }
-    return cache.get(key);
+    const directives = parseDirectives(sourceCode.getAllComments());
+    cache.set(key, {text: sourceCode.text, directives});
+    return directives;
 }
 
 /**
@@ -152,7 +156,7 @@ function withEslintDirectiveIDs(rule, eslintRuleId) {
                         if (position != null) {
                             const sourceCode = context.sourceCode ?? context.getSourceCode();
                             const filename = context.filename ?? context.getFilename();
-                            if (isSuppressed(directivesFor(filename, sourceCode.getAllComments()), eslintRuleId, position)) {
+                            if (isSuppressed(directivesFor(filename, sourceCode), eslintRuleId, position)) {
                                 return;
                             }
                         }

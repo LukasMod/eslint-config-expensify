@@ -29,7 +29,7 @@ function listLoadedModules(file) {
 for (const file of ['oxlint/utils.mjs', 'oxlint/index.mjs']) {
     test(`importing ${file} does not load @oxlint/migrate, globals or eslint-config-prettier`, () => {
         // Given a fresh process, so nothing else has loaded them
-        // When the file is imported
+        // When only that file is imported
         const loaded = listLoadedModules(file);
 
         // Then the conversion and its dependencies stay unloaded, which keeps plugin files and config files quick to load

@@ -100,7 +100,7 @@ function getRunningName(rule, nativeRules, replayedRuleIDs, withNursery) {
     }
 
     // A rule the presets do not set is not in replayedRuleIDs, so rules.json tells. With withNursery, it cannot say which
-    // of those rules oxlint runs itself, so the name is accepted and oxlint reports a rule it does not have.
+    // of those rules oxlint runs itself, so the name is accepted, and oxlint refuses the config if it doesn't know the rule.
     if (withNursery) {
         return undefined;
     }
@@ -165,7 +165,7 @@ function checkRulesJson(config) {
  * package's exports (`browser`, `react`, `typescript`, `jest`, `scripts`, ...) and `'prettier'` for
  * eslint-config-prettier. `{preset: 'jest', files: [...]}` re-scopes every block of that preset to `files`.
  * @param {{hosted?: string, rulesdir?: string}} [options.plugins] plugin files that replace this package's `hosted` and
- * `rulesdir` plugins. They must keep the plugin name. Use absolute paths or package names.
+ * `rulesdir` plugins. They must keep the plugin name. Use an absolute path, a package name, or a path relative to the config file.
  * @param {TransformRule} [options.transformRule] called for each preset rule with its ESLint rule ID, before conversion.
  * Return `[newRuleID, entry]` to write the rule under another name, `null` to drop it, `undefined` for the default.
  * React Compiler rules (see `reactCompilerRuleNames`) are kept as @oxlint/migrate writes them, `react/<name>`; map them

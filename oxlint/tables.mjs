@@ -32,7 +32,7 @@ const ALWAYS_HOSTED = new Set([
 
 // Preset rules that do not run at all, and why.
 const DROPPED_RULES = {
-    'no-invalid-this': 'calls sourceCode.getJSDocComment, which oxlint JS plugins do not support, and the error drops every JS plugin report in the file',
+    'no-invalid-this': 'calls sourceCode.getJSDocComment, which oxlint JS plugins do not support, and the error drops every other JS plugin report in the file',
     'react/jsx-uses-react': 'only marks variables as used; oxlint no-unused-vars handles JSX itself (checked: same reports with and without it)',
     'react/jsx-uses-vars': 'only marks variables as used; oxlint no-unused-vars handles JSX itself (checked: same reports with and without it)',
     'react-hooks/component-hook-factories': 'React Compiler check that oxlint does not implement',

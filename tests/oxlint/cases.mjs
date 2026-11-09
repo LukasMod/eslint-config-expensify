@@ -1,5 +1,6 @@
 /**
- * The preset lists the snapshots and tests build configs for: the App's, and react-native-onyx's.
+ * The preset lists the snapshots and tests build configs for: the App's, and react-native-onyx's. They are copies of
+ * those repos' configs, so update them when a repo changes its list.
  */
 import fs from 'node:fs';
 import {fileURLToPath} from 'node:url';

@@ -178,9 +178,9 @@ function isExpectedWarning(warning, blocks) {
 }
 
 /**
- * Runs @oxlint/migrate twice. With type information it swaps some core rules (like dot-notation) for typescript-eslint
- * versions, which the presets turn off on JS files. The run without type information finds those core rules so they
- * still run on JS files.
+ * Runs @oxlint/migrate twice. With type information, the presets swap some core rules (like dot-notation) for their
+ * typescript-eslint versions, but only on TypeScript files. The run without type information keeps those core rules on
+ * for JS files.
  * @param {Array<Record<string, any>>} blocks
  * @param {boolean} withNursery whether @oxlint/migrate also converts rules oxlint still keeps in its nursery category
  * @returns {Promise<{config: Record<string, any>, skipped: Set<string>}>} the converted config, and the ESLint IDs of the

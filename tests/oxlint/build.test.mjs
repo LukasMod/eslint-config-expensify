@@ -123,8 +123,8 @@ test('an unknown react-hooks rule fails the conversion', async () => {
 });
 
 test('buildOxlintConfig points at the plugin files with absolute paths, and plugins can be replaced', async () => {
-    // Given a repo with its own hosted plugin
-    // When the config is built
+    // Given a repo with its own hosted plugin file
+    // When the config is built with it as plugins.hosted
     const config = await buildOxlintConfig({presets: ['browser', 'react', 'expensify'], plugins: {hosted: '/repo/hosted.mjs'}, reactVersion: '19.0.0'});
 
     // Then every plugin of the package has an absolute path and the repo's replaces `hosted`

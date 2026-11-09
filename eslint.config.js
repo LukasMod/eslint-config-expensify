@@ -8,6 +8,7 @@ import reactFormatting from './configs/public/react-formatting.js';
  * Configuration to lint this project's own code, not for external use.
  */
 const config = defineConfig([
+    // The oxlint fixtures break rules on purpose, and the .d.mts type files are not part of the project the parser reads.
     globalIgnores(['**/node_modules/**', 'tests/oxlint/fixtures/**', '**/*.d.mts']),
     indexConfig,
     formatting,

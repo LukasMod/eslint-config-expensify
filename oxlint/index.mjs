@@ -68,44 +68,65 @@ async function loadConversion() {
 }
 
 /**
- * Returns the name a rule runs under when it runs as hosted/ or core/ instead of oxlint's built-in version.
+ * Returns the name a rule runs under when it runs as hosted/ or core/ (or under another name of oxlint's) instead of the
+ * name the repo wrote.
  * @param {string} rule a rule name as written in the repo's overrides
  * @param {string[]} nativeRules ALWAYS_HOSTED rule IDs the repo runs with oxlint's version
+ * @param {Map<string, string>} replayedRuleIDs ESLint rule ID to the rule that runs it, in the config being built
+ * @param {boolean} withNursery
  * @returns {string | undefined} undefined when the rule runs under the name given
  */
-function getRunningName(rule, nativeRules) {
+function getRunningName(rule, nativeRules, replayedRuleIDs, withNursery) {
     const {prefix, name} = splitRuleID(rule);
     const eslintPrefix = prefix in ESLINT_PREFIX_OF ? ESLINT_PREFIX_OF[prefix] : prefix;
     const eslintID = eslintPrefix ? `${eslintPrefix}/${name}` : name;
+
+    // @oxlint/migrate and oxlint write react-hooks rules under `react/`.
+    const eslintIDs = eslintPrefix === 'react' ? [eslintID, `react-hooks/${name}`] : [eslintID];
+    if (eslintIDs.some(id => nativeRules.includes(id))) {
+        return undefined;
+    }
+    const replayedID = eslintIDs.find(id => replayedRuleIDs.has(id));
+    if (replayedID) {
+        const target = replayedRuleIDs.get(replayedID);
+        return target === rule ? undefined : target;
+    }
+
+    // A rule the presets do not set is not in replayedRuleIDs, so rules.json tells. With withNursery, it cannot say which
+    // of those rules oxlint runs itself, so the name is accepted and oxlint reports a rule it does not have.
+    if (withNursery) {
+        return undefined;
+    }
     if (!eslintPrefix && coreRuleNames.includes(name)) {
         return `core/${name}`;
     }
-
-    // @oxlint/migrate and oxlint write react-hooks rules under `react/`.
-    const isHosted = id => ALWAYS_HOSTED.has(id) && !nativeRules.includes(id);
-    if (hostedRuleIDs.includes(eslintID) || isHosted(eslintID) || (eslintPrefix === 'react' && isHosted(`react-hooks/${name}`))) {
-        return `hosted/${name}`;
-    }
-    return undefined;
+    return eslintIDs.some(id => hostedRuleIDs.includes(id) || ALWAYS_HOSTED.has(id)) ? `hosted/${name}` : undefined;
 }
 
 /**
  * Throws when the repo sets a rule by its built-in name while it runs as hosted/ or core/ (like
- * `import/prefer-default-export`), which would do nothing or run a second copy. Also throws for a `core/` or `hosted/`
- * rule that no plugin has, since oxlint reports that only when the config loads.
+ * `import/prefer-default-export`), which would do nothing or run a second copy. Also throws for a `hosted/` name of a rule
+ * that runs natively because of `nativeRules`, and for a `core/` or `hosted/` rule that no plugin has, since oxlint
+ * reports that only when the config loads.
  * @param {string} rule
- * @param {string[]} extraRunningNames
- * @param {string[]} nativeRules
+ * @param {{extraRunningNames: string[], nativeRules: string[], replayedRuleIDs: Map<string, string>, withNursery: boolean}} context
  */
-function checkRuleName(rule, extraRunningNames, nativeRules) {
+function checkRuleName(rule, {
+    extraRunningNames, nativeRules, replayedRuleIDs, withNursery,
+}) {
     if (extraRunningNames.some(name => (name.endsWith('/') ? rule.startsWith(name) : rule === name))) {
         return;
     }
-    const runningName = getRunningName(rule, nativeRules);
+    const {prefix, name} = splitRuleID(rule);
+    const nativeID = prefix === 'hosted' ? nativeRules.find(ruleID => splitRuleID(ruleID).name === name) : undefined;
+    if (nativeID) {
+        const nativeName = nativeID.startsWith('react-hooks/') ? `react/${name}` : nativeID;
+        throw new Error(`The config sets "${rule}", but ${nativeID} is in nativeRules and runs as "${nativeName}". Use that name instead.`);
+    }
+    const runningName = getRunningName(rule, nativeRules, replayedRuleIDs, withNursery);
     if (runningName) {
         throw new Error(`The config sets "${rule}", but this rule runs as "${runningName}". Use that name instead.`);
     }
-    const {prefix, name} = splitRuleID(rule);
     const isUnknownCore = prefix === 'core' && !coreRuleNames.includes(name);
     const isUnknownHosted = prefix === 'hosted' && !hostedRuleIDs.some(ruleID => splitRuleID(ruleID).name === name);
     if (isUnknownCore || isUnknownHosted) {
@@ -147,8 +168,8 @@ function checkRulesJson(config) {
  * @param {string[]} [options.nativeRules] ESLint rule IDs from `alwaysHostedRuleIDs` (like `react-hooks/exhaustive-deps`) that
  * run with oxlint's own version instead of the hosted copy. Throws for an ID that is not in that list.
  * @param {boolean} [options.withNursery] also convert rules oxlint keeps in its nursery category (false by default)
- * @param {string} [options.reactVersion] the React version for oxlint's react rules; found from the working directory by
- * default, and required (it throws when it cannot be found) if a `react` preset is used
+ * @param {string} [options.reactVersion] the React version for oxlint's react rules; `settings.react.version` also works. Found from the
+ * working directory by default, and required (it throws when it cannot be found) if a `react` preset is used
  * @param {RepoConfig['ignorePatterns']} [options.ignorePatterns] added after the presets' patterns
  * @param {RepoConfig['env']} [options.env] merged over the presets' env
  * @param {RepoConfig['globals']} [options.globals] merged over the presets' globals
@@ -184,28 +205,34 @@ async function buildOxlintConfig({
     if (unknownRules.length) {
         throw new Error(`nativeRules has ${unknownRules.join(', ')}, which does not run as a hosted rule by default. Choose from: ${[...ALWAYS_HOSTED].join(', ')}.`);
     }
-    for (const override of overrides) {
-        for (const rule of Object.keys(override.rules ?? {})) {
-            checkRuleName(rule, extraRunningNames, nativeRules);
-        }
+    const coreNames = extraRunningNames.filter(name => name.startsWith('core/'));
+    if (coreNames.length) {
+        throw new Error(`extraRunningNames has ${coreNames.join(', ')}. The \`core\` plugin is fixed, so it cannot provide other rules; put your own rules under another plugin name.`);
     }
 
     const [{convertPresets, mergeSettings}, {loadPresetBlocks}] = await loadConversion();
-    const {config} = await convertPresets(await loadPresetBlocks(presets), {transformRule, withNursery, nativeRules});
+    const {config, replayedRuleIDs} = await convertPresets(await loadPresetBlocks(presets), {transformRule, withNursery, nativeRules});
     checkRulesJson(config);
+    for (const override of overrides) {
+        for (const rule of Object.keys(override.rules ?? {})) {
+            checkRuleName(rule, {
+                extraRunningNames, nativeRules, replayedRuleIDs, withNursery,
+            });
+        }
+    }
 
     const allRules = [config.rules, ...config.overrides.map(override => override.rules), ...overrides.map(override => override.rules)];
-    const rulesdirIsUsed = allRules.some(rules => Object.keys(rules ?? {}).some(rule => rule.startsWith('rulesdir/')));
+    const isUsed = prefix => allRules.some(rules => Object.keys(rules ?? {}).some(rule => rule.startsWith(prefix)));
     const usesReact = presets.some(entry => (typeof entry === 'string' ? entry : entry.preset) === 'react');
-    const version = usesReact ? getReactVersion(reactVersion) : reactVersion;
+    const version = usesReact ? getReactVersion(reactVersion ?? settings.react?.version) : reactVersion;
     return {
         ...config,
 
         // oxlint reserves its own plugin names, so these use other names.
         jsPlugins: [
-            ...(rulesdirIsUsed ? [{name: 'rulesdir', specifier: plugins.rulesdir ?? OWN_PLUGIN_SPECIFIERS.rulesdir}] : []),
-            {name: 'core', specifier: OWN_PLUGIN_SPECIFIERS.core},
-            {name: 'hosted', specifier: plugins.hosted ?? OWN_PLUGIN_SPECIFIERS.hosted},
+            ...(isUsed('rulesdir/') ? [{name: 'rulesdir', specifier: plugins.rulesdir ?? OWN_PLUGIN_SPECIFIERS.rulesdir}] : []),
+            ...(isUsed('core/') ? [{name: 'core', specifier: OWN_PLUGIN_SPECIFIERS.core}] : []),
+            ...(isUsed('hosted/') ? [{name: 'hosted', specifier: plugins.hosted ?? OWN_PLUGIN_SPECIFIERS.hosted}] : []),
             ...(config.jsPlugins ?? []),
             ...jsPlugins,
         ],

@@ -16,6 +16,10 @@ const RULE_SOURCE_LISTS = [
     ...PRESET_NAMES.map(name => [name]),
     ['browser', 'react', 'expensify', 'typescript', 'scripts', 'jest', 'prettier'],
     ['node', 'react', 'typescript', 'scripts', 'jest', 'prettier'],
+
+    // Re-scoped to `files`, which moves some rules from the root into overrides, and changes which ones oxlint skips.
+    // `react` is left out: its settings cannot be scoped to files, so re-scoping it is not supported.
+    ...PRESET_NAMES.filter(preset => preset !== 'react').map(preset => [{preset, files: ['src/**']}]),
 ];
 
 /**
@@ -40,11 +44,30 @@ async function loadPreset(name) {
 }
 
 /**
+ * @param {unknown} entry
+ */
+function checkPresetEntry(entry) {
+    const valid = [...PRESET_NAMES, 'prettier'].join(', ');
+    if (typeof entry === 'string') {
+        return;
+    }
+    if (typeof entry?.preset !== 'string') {
+        throw new Error(`A preset entry is a name or {preset, files}, but got ${JSON.stringify(entry)}. Valid presets: ${valid}.`);
+    }
+    if (entry.files !== undefined && !(Array.isArray(entry.files) && entry.files.length && entry.files.every(file => typeof file === 'string'))) {
+        throw new Error(`The files of the "${entry.preset}" preset must be a non-empty array of strings, but got ${JSON.stringify(entry.files)}.`);
+    }
+}
+
+/**
  * Loads the ESLint config blocks of the presets, in order.
  * @param {PresetEntry[]} presets
  * @returns {Promise<Array<Record<string, any>>>}
  */
 async function loadPresetBlocks(presets) {
+    for (const entry of presets) {
+        checkPresetEntry(entry);
+    }
     const lists = await Promise.all(
         presets.map(async (entry) => {
             const {preset, files} = typeof entry === 'string' ? {preset: entry, files: undefined} : entry;

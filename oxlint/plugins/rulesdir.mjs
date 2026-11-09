@@ -2,8 +2,9 @@
  * Loads every rule of eslint-plugin-expensify into oxlint, under the `rulesdir` name ESLint uses. A repo that changes a
  * rule builds its own plugin named `rulesdir` from `rules` and passes it as `plugins.rulesdir`.
  *
- * Rules that need type information (boolean-conditional-rendering, prefer-at) throw when they run, because JS plugins
- * get none. The conversion drops or replaces them, so presets never enable them here.
+ * Rules that need type information are left out, because JS plugins get none and they would throw on every file. A
+ * config that enables one fails to load with "rule not found", which names the rule. The conversion drops or replaces
+ * the ones the presets enable.
  */
 import fs from 'node:fs';
 import {createRequire} from 'node:module';
@@ -16,10 +17,14 @@ const ruleDirectory = fileURLToPath(new URL('../../eslint-plugin-expensify/', im
 // Files in the directory that are not rules.
 const HELPER_FILES = new Set(['CONST.js']);
 
+// Rules that call ESLintUtils.getParserServices, which oxlint JS plugins cannot provide.
+const TYPE_INFORMATION_RULES = new Set(['boolean-conditional-rendering', 'prefer-at', 'prefer-locale-compare-from-context']);
+
 const rules = {};
 for (const file of fs.readdirSync(ruleDirectory)) {
-    if (file.endsWith('.js') && !HELPER_FILES.has(file)) {
-        rules[file.replace(/\.js$/, '')] = require(path.join(ruleDirectory, file));
+    const name = file.replace(/\.js$/, '');
+    if (file.endsWith('.js') && !HELPER_FILES.has(file) && !TYPE_INFORMATION_RULES.has(name)) {
+        rules[name] = require(path.join(ruleDirectory, file));
     }
 }
 

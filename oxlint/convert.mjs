@@ -382,6 +382,10 @@ async function convertPresets(presetBlocks, {transformRule, withNursery = false,
     const enabledReplayTargets = new Set([replayed.rules, ...replayed.overrides.map(override => override.rules)].flatMap(rules => Object.keys(rules).filter(rule => !isOff(rules[rule]))));
     const dropUnneededRules = rules => Object.fromEntries(Object.entries(rules).filter(([rule]) => !/^(core|hosted)\//.test(rule) || enabledReplayTargets.has(rule)));
 
+    // A rule `transformRule` renamed is written as asked, but still gets the option fixes oxlint needs. The empty set keeps
+    // translateRules from dropping it as always hosted, since the repo chose its name.
+    const translateRenamed = (rules, isTypeScript) => translateRules(rules, isTypeScript, new Set());
+
     const specifiers = new Set([migrated, ...(migrated.overrides ?? [])].flatMap(block => block.jsPlugins ?? []));
     // eslint-plugin-rulesdir is replaced by plugins/rulesdir.mjs.
     specifiers.delete('eslint-plugin-rulesdir');
@@ -398,7 +402,7 @@ async function convertPresets(presetBlocks, {transformRule, withNursery = false,
         env: migrated.env,
         globals: migrated.globals,
         settings: {...migrated.settings, ...getImportSettings(blocks)},
-        rules: {...translateRules(migrated.rules, false, alwaysHosted), ...dropUnneededRules(replayed.rules), ...renamed.rules},
+        rules: {...translateRules(migrated.rules, false, alwaysHosted), ...dropUnneededRules(replayed.rules), ...translateRenamed(renamed.rules, false)},
         overrides: [
             // jsPlugins are left out here; they are listed once at the root.
             ...(migrated.overrides ?? []).map(({
@@ -419,7 +423,7 @@ async function convertPresets(presetBlocks, {transformRule, withNursery = false,
                     : {}),
             })),
             ...replayed.overrides.map(({files, rules}) => ({files, rules: dropUnneededRules(rules)})),
-            ...renamed.overrides,
+            ...renamed.overrides.map(({files, rules}) => ({files, rules: translateRenamed(rules, isTypeScriptBlock(files))})),
         ],
     };
     return {config, replayedRuleIDs, enabledReplayTargets};

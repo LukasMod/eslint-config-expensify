@@ -84,7 +84,9 @@ test('buildOxlintConfig points at the plugin files with absolute paths, and plug
 
 test('overrides that use the wrong name for a hosted or core rule are rejected', async () => {
     // Given overrides that set a rule by oxlint's name while it runs hosted, core, or under a name no plugin has
-    const build = (rule, extraRunningNames) => buildOxlintConfig({presets: ['react'], overrides: [{files: ['**/*.js'], rules: {[rule]: 'off'}}], extraRunningNames});
+    const build = (rule, extraRunningNames) => buildOxlintConfig({
+        presets: ['react'], reactVersion: '19.0.0', overrides: [{files: ['**/*.js'], rules: {[rule]: 'off'}}], extraRunningNames,
+    });
 
     // When the config is built, then each one fails with the name to use
     await assert.rejects(build('import/prefer-default-export'), /Use that name instead/);

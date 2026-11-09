@@ -32,6 +32,16 @@ async function inEmptyDirectory(callback) {
     }
 }
 
+/** @returns {boolean} whether `react` resolves from this checkout, the second place buildOxlintConfig looks */
+function canResolveReactFromPackage() {
+    try {
+        createRequire(fileURLToPath(import.meta.url)).resolve('react');
+        return true;
+    } catch {
+        return false;
+    }
+}
+
 const rulesOf = config => [config.rules, ...config.overrides.map(override => override.rules)];
 const hasRule = (config, name) => rulesOf(config).some(rules => rules && name in rules);
 
@@ -141,7 +151,14 @@ test('overrides that use the wrong name for a hosted or core rule are rejected',
     await build('rc/immutability', ['rc/']);
 });
 
-test('buildOxlintConfig needs a React version when the react preset is used and react cannot be resolved', async () => {
+test('buildOxlintConfig needs a React version when the react preset is used and react cannot be resolved', async (t) => {
+    // buildOxlintConfig also looks for react from where this package sits, so a checkout inside a project with react
+    // finds it and this case cannot happen there. CI checks out the package on its own.
+    if (canResolveReactFromPackage()) {
+        t.skip('react resolves from this checkout\'s location');
+        return;
+    }
+
     // Given an empty working directory where react cannot be resolved
     await inEmptyDirectory(async () => {
         // When the react preset is built without reactVersion, then it fails clearly

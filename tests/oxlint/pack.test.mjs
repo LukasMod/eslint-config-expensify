@@ -24,9 +24,10 @@ test('the packed package builds a config that oxlint loads, from a project that 
         const installedVersion = name => JSON.parse(fs.readFileSync(path.join(packageDirectory, 'node_modules', name, 'package.json'), 'utf8')).version;
         fs.writeFileSync(path.join(project, 'package.json'), JSON.stringify({name: 'consumer', private: true, type: 'module'}));
         const install = packages => execFileSync('npm', ['install', '--no-audit', '--no-fund', ...packages], {cwd: project, stdio: 'pipe'});
-        install([path.join(packDirectory, filename), `oxlint@${installedVersion('oxlint')}`, `oxlint-tsgolint@${installedVersion('oxlint-tsgolint')}`]);
+        install([path.join(packDirectory, filename), 'react@19.0.0', `oxlint@${installedVersion('oxlint')}`, `oxlint-tsgolint@${installedVersion('oxlint-tsgolint')}`]);
 
-        // When the consumer builds the config, with the plugin paths the package exports, and oxlint runs it
+        // When the consumer builds the config from another directory, as an editor may, with the plugin paths the package
+        // exports, and oxlint runs it
         fs.writeFileSync(
             path.join(project, 'build-config.mjs'),
             `import fs from 'node:fs';
@@ -34,24 +35,27 @@ import {buildOxlintConfig} from 'eslint-config-expensify/oxlint';
 
 import 'eslint-config-expensify/oxlint/plugins/hosted.mjs';
 
-const config = await buildOxlintConfig({presets: ['browser', 'react', 'expensify', 'typescript', 'scripts', 'jest', 'prettier'], reactVersion: '19.0.0'});
+const config = await buildOxlintConfig({presets: ['browser', 'react', 'expensify', 'typescript', 'scripts', 'jest', 'prettier']});
 fs.writeFileSync(process.argv[2], JSON.stringify(config));
 `,
         );
         const configFile = path.join(project, 'built.json');
 
         // And without @oxlint/migrate, an optional peer dependency, the build fails and says what to install
-        const build = () => execFileSync(process.execPath, ['build-config.mjs', configFile], {cwd: project, stdio: 'pipe'});
+        const build = () => execFileSync(process.execPath, [path.join(project, 'build-config.mjs'), configFile], {cwd: workDirectory, stdio: 'pipe'});
         assert.throws(build, error => /npm install --save-dev "@oxlint\/migrate@>=1\.90\.0 <2"/.test(String(error.stderr)));
 
         // And with it installed, as the README says, the build works
         install([`@oxlint/migrate@${installedVersion('@oxlint/migrate')}`]);
         build();
+
+        // Then react is found from where the package is installed, not from the working directory
+        assert.equal(JSON.parse(fs.readFileSync(configFile, 'utf8')).settings.react.version, '19.0.0');
         const fixtures = createFixtureProject(fs.readFileSync(configFile, 'utf8'));
         try {
             const {codes, stderr} = runOxlint(fixtures, path.join(project, 'node_modules/.bin/oxlint'), getOxlintEnvironment(project));
 
-            // Then the config loads and rules from every plugin report
+            // And the config loads and rules from every plugin report
             assert.ok(codes.length > 0, `oxlint did not load the config: ${stderr}`);
             assert.ok(codes.includes('hosted(exhaustive-deps)') && codes.includes('rulesdir(no-inline-named-export)') && codes.includes('eslint(eqeqeq)'), [...new Set(codes)].join(', '));
         } finally {

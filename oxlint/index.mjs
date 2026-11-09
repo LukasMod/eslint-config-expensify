@@ -16,6 +16,7 @@ import {ALWAYS_HOSTED, ESLINT_PREFIX_OF} from './tables.mjs';
 export * from './utils.mjs';
 
 const require = createRequire(import.meta.url);
+const PACKAGE_DIRECTORY = fileURLToPath(new URL('..', import.meta.url));
 
 const OWN_PLUGIN_SPECIFIERS = {
     core: fileURLToPath(new URL('./plugins/core.mjs', import.meta.url)),
@@ -42,9 +43,14 @@ function getReactVersion(reactVersion) {
         return reactVersion;
     }
     try {
-        return require(require.resolve('react/package.json', {paths: [process.cwd()]})).version;
+        // The working directory first, then where this package is installed, which is inside the repo's node_modules. So
+        // the config also builds when oxlint or an editor loads it from another directory.
+        return require(require.resolve('react/package.json', {paths: [process.cwd(), PACKAGE_DIRECTORY]})).version;
     } catch {
-        throw new Error('The react preset needs the React version, and `react` cannot be resolved from the working directory. Install react, or pass `reactVersion`.');
+        throw new Error(
+            'The react preset needs the React version, and `react` cannot be resolved from the working directory or from where eslint-config-expensify is installed. '
+            + 'Install react, or pass `reactVersion`.',
+        );
     }
 }
 

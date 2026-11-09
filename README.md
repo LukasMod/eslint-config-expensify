@@ -53,15 +53,13 @@ export default defineConfig([
 
 ## oxlint
 
-`eslint-config-expensify/oxlint` builds an [oxlint](https://oxc.rs) config from the same presets you list in an ESLint config. It runs [`@oxlint/migrate`](https://github.com/oxc-project/oxlint-migrate) on them. Rules oxlint cannot run itself run from ESLint's own code, through JS plugins named `core` (ESLint core rules) and `hosted` (ESLint plugin rules, as `hosted/<rule>`); the rules of `eslint-plugin-expensify` load as `rulesdir`. The package needs `oxlint` 1.90.0 or later in 1.x.
+`eslint-config-expensify/oxlint` builds an [oxlint](https://oxc.rs) config from the same presets you would list in an ESLint config, so a repo can lint with oxlint without copying any rules. Rules oxlint can't run itself still run, from ESLint's own code, as `core/<rule>` (ESLint core rules) and `hosted/<rule>` (ESLint plugin rules).
 
-Install these tools as dev dependencies next to this package; they are optional peer dependencies, so a repo that only uses the ESLint presets does not get them:
+Install oxlint next to this package. These are optional peer dependencies, so repos that only use the ESLint presets don't get them:
 
 ```sh
 npm install --save-dev oxlint @oxlint/migrate oxlint-tsgolint
 ```
-
-`oxlint-tsgolint` is needed because the built config sets `options.typeAware: true`; without it oxlint fails to load the config.
 
 ```js
 // oxlint.config.mts
@@ -77,30 +75,22 @@ export default defineConfig(
 );
 ```
 
-It returns one flat config (no `extends`). Plugin files are written as absolute paths, so you can also save the result as JSON anywhere. A TypeScript config file such as `oxlint.config.mts` needs Node 22.18 or later, the version oxlint 1.90 asks for.
-
-Types ship with the package (`oxlint/*.d.mts`, found through the `types` condition of each export), so a TypeScript config file such as `oxlint.config.mts` type-checks without a local declaration file. They import types from `oxlint` and `eslint`.
-
 Options:
 
-- `presets`: names of this package's exports (`browser`, `react`, `typescript`, `jest`, `scripts`, ...) and `'prettier'` for `eslint-config-prettier`. `{preset, files}` limits every block of that preset to `files`.
-- `plugins: {hosted, rulesdir}`: your own plugin file in place of ours. It must keep the plugin name. A specifier is an absolute path, a package name, or a path relative to the config file (`'./config/oxlint/plugins/hosted-rules.mjs'`; oxlint resolves it from the directory of the config file, not the working directory; checked with oxlint 1.90). Build the plugin from `hostRule` and the other helpers (exported by `eslint-config-expensify/oxlint` and the lighter `eslint-config-expensify/oxlint/utils`, which never loads `@oxlint/migrate`) and `rules` (exported by `eslint-config-expensify/oxlint/plugins/hosted.mjs` and `.../rulesdir.mjs`; the `rulesdir` rules leave out `boolean-conditional-rendering`, `prefer-at` and `prefer-locale-compare-from-context`, which need type information that oxlint JS plugins don't get). `hostRule(ruleID, pluginRules)` takes the `rules` object of a plugin this package does not list as its second argument, so a repo can host those rules with the same wrappers: `hostRule('storybook/default-exports', storybookPlugin.rules)`.
-- `transformRule(ruleID, entry)`: called for each preset rule with its ESLint ID before it is converted. Return `[newRuleID, entry]` to rename it, `null` to drop it, `undefined` to keep the default. React Compiler rules of `eslint-plugin-react-hooks` (`reactCompilerRuleNames`) are kept as `@oxlint/migrate` writes them, as oxlint's own `react/<name>` rules (the three checks oxlint does not implement, `config`, `gating` and `component-hook-factories`, are dropped); return `null` or a new name to change that. A `react-hooks` rule that is neither a compiler rule nor classic stops the build.
-- `nativeRules`: ESLint rule IDs from `alwaysHostedRuleIDs` (like `'react-hooks/exhaustive-deps'`) that run with oxlint's own version. Those rules run from ESLint's code as `hosted/` by default, because it reports exactly what ESLint does with ESLint's wording, but a repo may prefer oxlint's faster version. An ID that is not in that list throws.
-- `extraRunningNames`: rule names, or prefixes ending in `/`, that your overrides use and the package does not know, like `rc/` or `hosted/require-jsdoc`.
-- `ignorePatterns`, `env`, `globals`, `settings`, `jsPlugins`, `overrides`: your own config, merged after the presets. Put rules that run as `core/` or `hosted/` under that name; oxlint's own name for them is rejected with a message.
-- `withNursery`: also convert the rules oxlint keeps in its nursery category. `false` by default: those rules run from ESLint's code as `core/` or `hosted/` instead.
-- `reactVersion`: found from `react` in the working directory if you leave it out. If a `react` preset is used and the version cannot be found, `buildOxlintConfig` throws.
+- `presets`: this package's exports (`browser`, `react`, `typescript`, `jest`, `scripts`, ...) plus `'prettier'` to turn off formatting rules. `{preset, files}` limits a preset to some files.
+- `ignorePatterns`, `env`, `globals`, `settings`, `jsPlugins`, `overrides`: the repo's own config, applied after the presets. A rule that runs as `core/` or `hosted/` must be written with that prefix; the build says so if it isn't.
+- `plugins: {hosted, rulesdir}`: a repo's own plugin file in place of ours, for example to add rules or wrap one. Build it with `hostRule()` and the `rules` exported by `eslint-config-expensify/oxlint/plugins/hosted.mjs` and `.../rulesdir.mjs`.
+- `transformRule(ruleID, entry)`: rename (`[newID, entry]`) or drop (`null`) a preset rule before it is converted.
+- `nativeRules`: rules from `alwaysHostedRuleIDs` (like `react-hooks/exhaustive-deps`) to run with oxlint's faster version instead of ESLint's.
+- `extraRunningNames`: rule names or prefixes (like `rc/`) that the repo's own plugins add.
+- `withNursery`: also use oxlint's experimental (nursery) rules where it has them.
+- `reactVersion`: only needed when `react` can't be found from the repo.
 
-After a blanket `/* eslint-disable */`, a later `/* eslint-enable <ESLint rule ID> */` does not turn `core/` or `hosted/` rules back on, because oxlint handles those directives itself and only knows their own names.
+`toEslintRuleID()` turns oxlint's name for a finding, like `hosted(exhaustive-deps)`, back into the ESLint rule ID, so baselines and `eslint-disable` comments keep using ESLint IDs.
 
-Other exports: `toEslintRuleID(oxlintCode)` (for example `hosted(exhaustive-deps)` to `react-hooks/exhaustive-deps`), `withEslintDirectiveIDs`, `withEslintDirectiveIDsFor`, `reactCompilerRuleNames`, `coreRuleNames`, `hostedRuleIDs`, `alwaysHostedRuleIDs`, `eslintRuleRenames`. The package exports only `oxlint`, `oxlint/utils` and `oxlint/plugins/{core,hosted,rulesdir}.mjs`.
+### Changing rules
 
-### Updating the rule list
-
-`oxlint/generated/rules.json` lists which rules run as `core/` and `hosted/`. It depends only on what oxlint supports, so the plugins read it instead of converting the presets each time they load. After you change a preset, `oxlint/tables.mjs` or the `oxlint` version, run `npm run build:oxlint`, check the diff, and commit it. That also rewrites the test snapshots. `npm run test:oxlint` fails when either is out of date. `npm test` (jest) does not run `tests/oxlint`; use `npm run test:oxlint` for those.
-
-The React Compiler rule names come from `eslint-plugin-react-hooks` itself: every rule except `rules-of-hooks` and `exhaustive-deps` (see `oxlint/reactCompilerRules.mjs`).
+Edit the presets as usual. If you add a rule, change `oxlint/tables.mjs` or move to another oxlint version, run `npm run build:oxlint` and commit what it changes: `oxlint/generated/rules.json` (which rules run as `core/` or `hosted/`) and the test snapshots. Run `npm run test:oxlint` to check the oxlint side; `npm test` doesn't include it.
 
 ## Style Guide
 

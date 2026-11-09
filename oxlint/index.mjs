@@ -43,9 +43,9 @@ function getReactVersion(reactVersion) {
         return reactVersion;
     }
     try {
-        // The working directory first, then where this package is installed, which is inside the repo's node_modules. So
-        // the config also builds when oxlint or an editor loads it from another directory.
-        return require(require.resolve('react/package.json', {paths: [process.cwd(), PACKAGE_DIRECTORY]})).version;
+        // Where this package is installed first: that is inside the repo's node_modules, so it finds the repo's own react
+        // even when oxlint or an editor runs from another directory. The working directory is the fallback.
+        return require(require.resolve('react/package.json', {paths: [PACKAGE_DIRECTORY, process.cwd()]})).version;
     } catch {
         throw new Error(
             'The react preset needs the React version, and `react` cannot be resolved from the working directory or from where eslint-config-expensify is installed. '
@@ -228,12 +228,18 @@ async function buildOxlintConfig({
         }
     }
 
-    const allRules = [config.rules, ...config.overrides.map(override => override.rules), ...overrides.map(override => override.rules)];
-    const isUsed = prefix => allRules.some(rules => Object.keys(rules ?? {}).some(rule => rule.startsWith(prefix)));
+    // A plugin whose rules are only ever turned off is not loaded, and those `off` entries are dropped, since oxlint
+    // rejects a rule name whose plugin is missing.
+    const isOff = entry => [entry, Array.isArray(entry) ? entry[0] : undefined].some(severity => severity === 'off' || severity === 0);
+    const ruleMaps = [config.rules, ...config.overrides.map(override => override.rules), ...overrides.map(override => override.rules)];
+    const isUsed = prefix => ruleMaps.some(rules => Object.entries(rules ?? {}).some(([rule, entry]) => rule.startsWith(prefix) && !isOff(entry)));
+    const unusedPrefixes = ['rulesdir/', 'core/', 'hosted/'].filter(prefix => !isUsed(prefix));
+    const withoutUnused = rules => rules && Object.fromEntries(Object.entries(rules).filter(([rule]) => !unusedPrefixes.some(prefix => rule.startsWith(prefix))));
     const usesReact = presets.some(entry => (typeof entry === 'string' ? entry : entry.preset) === 'react');
     const version = usesReact ? getReactVersion(reactVersion ?? settings.react?.version) : reactVersion;
     return {
         ...config,
+        rules: withoutUnused(config.rules),
 
         // oxlint reserves its own plugin names, so these use other names.
         jsPlugins: [
@@ -247,7 +253,7 @@ async function buildOxlintConfig({
         globals: {...config.globals, ...globals},
         settings: mergeSettings(config.settings, mergeSettings(version ? {react: {...config.settings?.react, version}} : {}, settings)),
         ignorePatterns: [...(config.ignorePatterns ?? []), ...ignorePatterns],
-        overrides: [...config.overrides, ...overrides],
+        overrides: [...config.overrides, ...overrides].map(override => (override.rules ? {...override, rules: withoutUnused(override.rules)} : override)),
     };
 }
 

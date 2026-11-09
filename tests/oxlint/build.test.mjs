@@ -376,6 +376,21 @@ test('the core and hosted plugins load only when the config uses one of their ru
     assert.deepEqual(withHosted.jsPlugins.filter(plugin => ['core', 'hosted'].includes(plugin.name)), [{name: 'hosted', specifier: '/repo/hosted.mjs'}]);
 });
 
+test('a plugin whose rules are only turned off is not loaded, and those off entries are dropped', async () => {
+    // Given presets that only turn rulesdir rules off (no expensify preset), and a repo that only turns a core/ rule off
+    const rulesdirOff = await buildOxlintConfig({presets: ['browser', 'typescript']});
+    const coreOff = await buildOxlintConfig({presets: ['prettier'], overrides: [{files: ['**/*.js'], rules: {'core/no-restricted-syntax': 'off'}}]});
+
+    // When the rule names of each built config are collected
+    const ruleNames = config => [config.rules, ...config.overrides.map(override => override.rules ?? {})].flatMap(rules => Object.keys(rules));
+
+    // Then the plugin is not loaded and no rule names it, since oxlint rejects a rule whose plugin is missing
+    assert.deepEqual(rulesdirOff.jsPlugins.filter(plugin => plugin.name === 'rulesdir'), []);
+    assert.deepEqual(ruleNames(rulesdirOff).filter(rule => rule.startsWith('rulesdir/')), []);
+    assert.deepEqual(coreOff.jsPlugins.filter(plugin => plugin.name === 'core'), []);
+    assert.deepEqual(ruleNames(coreOff).filter(rule => rule.startsWith('core/')), []);
+});
+
 test('toEslintRuleID maps oxlint names back to ESLint rule IDs', () => {
     // Given oxlint diagnostic codes
     // When they are mapped, then ESLint's IDs come back

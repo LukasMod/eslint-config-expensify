@@ -8,10 +8,6 @@
   ],
   "jsPlugins": [
     {
-      "name": "rulesdir",
-      "specifier": "<package>/oxlint/plugins/rulesdir.mjs"
-    },
-    {
       "name": "core",
       "specifier": "<package>/oxlint/plugins/core.mjs"
     },
@@ -2430,7 +2426,6 @@
           }
         ],
         "unicorn/prefer-at": "error",
-        "rulesdir/prefer-underscore-method": "off",
         "jsdoc/require-param": "off",
         "max-params": [
           "error",

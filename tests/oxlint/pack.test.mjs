@@ -41,6 +41,10 @@ fs.writeFileSync(process.argv[2], JSON.stringify(config));
         );
         const configFile = path.join(project, 'built.json');
 
+        // And another react in the working directory the build runs from, which must not win over the project's own
+        fs.mkdirSync(path.join(workDirectory, 'node_modules/react'), {recursive: true});
+        fs.writeFileSync(path.join(workDirectory, 'node_modules/react/package.json'), JSON.stringify({name: 'react', version: '0.0.0-working-directory'}));
+
         // And without @oxlint/migrate, an optional peer dependency, the build fails and says what to install
         const build = () => execFileSync(process.execPath, [path.join(project, 'build-config.mjs'), configFile], {cwd: workDirectory, stdio: 'pipe'});
         assert.throws(build, error => /npm install --save-dev "@oxlint\/migrate@>=1\.90\.0 <2"/.test(String(error.stderr)));

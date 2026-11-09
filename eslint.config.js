@@ -22,8 +22,8 @@ const config = defineConfig([
         },
     },
     {
-        // Tooling that runs on modern Node only: it uses `??` (26 places), `?.` (25) and native array methods (88), which the
-        // legacy-app rules refuse. Rewriting them to fit would make this code worse.
+        // Tooling that runs on modern Node only: it uses `??`, `?.` and native array methods, which the legacy-app rules
+        // refuse. Rewriting them to fit would make this code worse.
         files: ['oxlint/**', 'scripts/**', 'tests/oxlint/**'],
         rules: {
             'es/no-nullish-coalescing-operators': 'off',

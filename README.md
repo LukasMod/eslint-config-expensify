@@ -53,13 +53,15 @@ export default defineConfig([
 
 ## oxlint
 
-`eslint-config-expensify/oxlint` builds an [oxlint](https://oxc.rs) config from the same presets you list in an ESLint config. It runs [`@oxlint/migrate`](https://github.com/oxc-project/oxlint-migrate) on them. Rules oxlint cannot run itself run from ESLint's own code, through two JS plugins named `core` (ESLint core rules) and `hosted` (ESLint plugin rules, as `hosted/<rule>`). The package needs `oxlint` 1.90.x.
+`eslint-config-expensify/oxlint` builds an [oxlint](https://oxc.rs) config from the same presets you list in an ESLint config. It runs [`@oxlint/migrate`](https://github.com/oxc-project/oxlint-migrate) on them. Rules oxlint cannot run itself run from ESLint's own code, through JS plugins named `core` (ESLint core rules) and `hosted` (ESLint plugin rules, as `hosted/<rule>`); the rules of `eslint-plugin-expensify` load as `rulesdir`. The package needs `oxlint` 1.90.0 or later in 1.x.
 
-Install both tools as dev dependencies next to this package; they are optional peer dependencies, so a repo that only uses the ESLint presets does not get them:
+Install these tools as dev dependencies next to this package; they are optional peer dependencies, so a repo that only uses the ESLint presets does not get them:
 
 ```sh
-npm install --save-dev oxlint@1.90.x @oxlint/migrate@1.90.x
+npm install --save-dev oxlint @oxlint/migrate oxlint-tsgolint
 ```
+
+`oxlint-tsgolint` is needed because the built config sets `options.typeAware: true`; without it oxlint fails to load the config with "Failed to find tsgolint executable".
 
 ```js
 // oxlint.config.mts
@@ -75,7 +77,7 @@ export default defineConfig(
 );
 ```
 
-It returns one flat config (no `extends`). Plugin files are written as absolute paths, so you can also save the result as JSON anywhere.
+It returns one flat config (no `extends`). Plugin files are written as absolute paths, so you can also save the result as JSON anywhere. A TypeScript config file such as `oxlint.config.mts` needs Node 22.18 or later, which is what oxlint 1.90 says in its own error message (read in its source; not run on 22.18).
 
 Types ship with the package (`oxlint/*.d.mts`, found through the `types` condition of each export), so a TypeScript config file such as `oxlint.config.mts` type-checks without a local declaration file. They import types from `oxlint` and `eslint`.
 
@@ -90,11 +92,13 @@ Options:
 - `withNursery`: also convert the rules oxlint keeps in its nursery category. `false` by default: those rules run from ESLint's code as `core/` or `hosted/` instead.
 - `reactVersion`: found from `react` in the working directory if you leave it out. If a `react` preset is used and the version cannot be found, `buildOxlintConfig` throws.
 
+After a blanket `/* eslint-disable */`, a later `/* eslint-enable <ESLint rule ID> */` does not turn `core/` or `hosted/` rules back on, because oxlint handles those directives itself and only knows their own names.
+
 Other exports: `toEslintRuleID(oxlintCode)` (for example `hosted(exhaustive-deps)` to `react-hooks/exhaustive-deps`), `withEslintDirectiveIDs`, `withEslintDirectiveIDsFor`, `reactCompilerRuleNames`, `coreRuleNames`, `hostedRuleIDs`, `alwaysHostedRuleIDs`, `eslintRuleRenames`. The package exports only `oxlint`, `oxlint/utils` and `oxlint/plugins/{core,hosted,rulesdir}.mjs`.
 
 ### Updating the rule list
 
-`oxlint/generated/rules.json` lists which rules run as `core/` and `hosted/`. It depends only on what oxlint supports, so the plugins read it instead of converting the presets each time they load. After you change a preset, `oxlint/tables.mjs` or the `oxlint` version, run `npm run build:oxlint`, check the diff, and commit it. That also rewrites the test snapshots. `npm run test:oxlint` fails when either is out of date.
+`oxlint/generated/rules.json` lists which rules run as `core/` and `hosted/`. It depends only on what oxlint supports, so the plugins read it instead of converting the presets each time they load. After you change a preset, `oxlint/tables.mjs` or the `oxlint` version, run `npm run build:oxlint`, check the diff, and commit it. That also rewrites the test snapshots. `npm run test:oxlint` fails when either is out of date. `npm test` (jest) does not run `tests/oxlint`; use `npm run test:oxlint` for those.
 
 The React Compiler rule names come from `eslint-plugin-react-hooks` itself: every rule except `rules-of-hooks` and `exhaustive-deps` (see `oxlint/reactCompilerRules.mjs`).
 

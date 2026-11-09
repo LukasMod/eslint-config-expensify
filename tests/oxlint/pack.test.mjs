@@ -40,7 +40,7 @@ fs.writeFileSync(process.argv[2], JSON.stringify(config));
 
         // And without @oxlint/migrate, an optional peer dependency, the build fails and says what to install
         const build = () => execFileSync(process.execPath, ['build-config.mjs', configFile], {cwd: project, stdio: 'pipe'});
-        assert.throws(build, error => /Install @oxlint\/migrate 1\.90\.x as a dev dependency/.test(String(error.stderr)));
+        assert.throws(build, error => /Install @oxlint\/migrate >=1\.90\.0 <2 as a dev dependency/.test(String(error.stderr)));
 
         // And with it installed, as the README says, the build works
         install([`@oxlint/migrate@${devDependencies['@oxlint/migrate']}`]);

@@ -20,7 +20,7 @@ test('the packed package builds a config that oxlint loads, from a project that 
         fs.mkdirSync(project);
         const [{filename}] = JSON.parse(execFileSync('npm', ['pack', '--json', '--ignore-scripts', '--pack-destination', packDirectory], {cwd: packageDirectory, encoding: 'utf8'}));
 
-        // The versions installed here, not the ones package.json pins, so the CI job that installs the latest oxlint tests those
+        // The same oxlint versions this checkout has installed
         const installedVersion = name => JSON.parse(fs.readFileSync(path.join(packageDirectory, 'node_modules', name, 'package.json'), 'utf8')).version;
         fs.writeFileSync(path.join(project, 'package.json'), JSON.stringify({name: 'consumer', private: true, type: 'module'}));
         const install = packages => execFileSync('npm', ['install', '--no-audit', '--no-fund', ...packages], {cwd: project, stdio: 'pipe'});

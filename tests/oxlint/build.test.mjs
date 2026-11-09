@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import {createRequire} from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import {test} from 'node:test';
@@ -11,12 +12,17 @@ import {
 } from '../../oxlint/index.mjs';
 
 /**
- * Runs `callback` with an empty temp folder as the working directory, so `react` cannot be resolved from it.
+ * Runs `callback` with an empty temp folder as the working directory, so `react` cannot be resolved from it. Node also
+ * looks in the folders above it, so this fails up front when the temp folder sits under a node_modules/react.
  * @param {() => Promise<void>} callback
  */
 async function inEmptyDirectory(callback) {
     const cwd = process.cwd();
     const emptyDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'expensify-oxlint-empty-'));
+    assert.throws(
+        () => createRequire(path.join(emptyDirectory, 'index.js')).resolve('react'),
+        `react resolves from ${emptyDirectory}, so this test cannot check what happens without it. Set TMPDIR to a folder with no node_modules/react above it.`,
+    );
     process.chdir(emptyDirectory);
     try {
         await callback();
@@ -136,7 +142,7 @@ test('overrides that use the wrong name for a hosted or core rule are rejected',
 });
 
 test('buildOxlintConfig needs a React version when the react preset is used and react cannot be resolved', async () => {
-    // Given an empty working directory, so no react is found there or above it
+    // Given an empty working directory where react cannot be resolved
     await inEmptyDirectory(async () => {
         // When the react preset is built without reactVersion, then it fails clearly
         await assert.rejects(buildOxlintConfig({presets: ['react']}), /pass `reactVersion`/);

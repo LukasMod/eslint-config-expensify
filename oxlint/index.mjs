@@ -58,8 +58,9 @@ async function loadConversion() {
     } catch (error) {
         if (error?.code === 'ERR_MODULE_NOT_FOUND' && String(error.message).includes('@oxlint/migrate')) {
             const {peerDependencies} = require('../package.json');
+            const installCommand = `npm install --save-dev "@oxlint/migrate@${peerDependencies['@oxlint/migrate']}"`;
             throw new Error(
-                `buildOxlintConfig needs @oxlint/migrate, which is not installed. Install @oxlint/migrate ${peerDependencies['@oxlint/migrate']} as a dev dependency.`,
+                `buildOxlintConfig needs @oxlint/migrate, which is not installed. Install it as a dev dependency: ${installCommand}`,
                 {cause: error},
             );
         }
